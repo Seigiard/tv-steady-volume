@@ -18,6 +18,13 @@ dependencies, no network, `minSdk` 28, `targetSdk` 30.
   session 0, "Dynamics Processing", `Enabled y`. Logcat tag: `SteadyVolume`.
 - The real test is by ear on a TV. There is no emulator path for the audio effect.
 
+## Release
+
+1. Push `main` first and let CI pass.
+2. Then push the tag on its own: `git tag -a v0.2.0 -m "..." && git push origin v0.2.0`. Pushing the
+   branch and the tag in one command made GitHub skip both workflows once; a tag pushed alone works.
+3. The Release workflow signs the APK and publishes `steadyvolume-<version>.apk` with generated notes.
+
 ## Rules
 
 - Never commit device identifiers: IP addresses, serial numbers, Wi-Fi names, ADB keys.
