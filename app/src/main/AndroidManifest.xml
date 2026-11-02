@@ -26,6 +26,18 @@
             </intent-filter>
         </activity>
 
+        <activity
+            android:name=".QuickPanelActivity"
+            android:exported="true"
+            android:excludeFromRecents="true"
+            android:launchMode="singleInstance"
+            android:theme="@style/QuickPanelTheme">
+            <intent-filter>
+                <action android:name="android.speech.action.WEB_SEARCH" />
+                <category android:name="android.intent.category.DEFAULT" />
+            </intent-filter>
+        </activity>
+
         <service android:name=".LevelerService" android:exported="false" />
 
         <receiver android:name=".BootReceiver" android:exported="true">

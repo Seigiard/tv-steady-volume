@@ -5,4 +5,5 @@
     <color name="tile">#1C232B</color>
     <color name="tile_selected">#1E5AA8</color>
     <color name="focus">#FFFFFF</color>
+    <color name="panel_bg">#E6101418</color>
 </resources>
