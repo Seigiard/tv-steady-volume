@@ -13,6 +13,8 @@ dependencies, no network, `minSdk` 28, `targetSdk` 30.
 - JDK 17 and Android SDK platform 34 / build-tools 34.0.0. `local.properties` (ignored) points
   `sdk.dir` at the SDK.
 - Build: `./gradlew assembleDebug` → `app/build/outputs/apk/debug/app-debug.apk`.
+- JVM tests: `./gradlew testDebugUnitTest`. They cover the pure Java only: preset ids and order, the
+  volume boost clamp. CI runs build, tests and lint.
 - Install on a TV with ADB: `adb install -r app/build/outputs/apk/debug/app-debug.apk`.
 - Check the effect is attached: `adb shell dumpsys media.audio_flinger` must list one effect for
   session 0, "Dynamics Processing", `Enabled y`. Logcat tag: `SteadyVolume`.
@@ -28,9 +30,10 @@ dependencies, no network, `minSdk` 28, `targetSdk` 30.
 ## Rules
 
 - Never commit device identifiers: IP addresses, serial numbers, Wi-Fi names, ADB keys.
-- No new dependencies and no network permission without an issue first.
-- Presets are changed in `Leveler.java`, not by adding settings screens, unless an issue decides
-  otherwise.
+- No new dependencies and no network permission without an issue first. `testImplementation`
+  dependencies are exempt: they never ship in the APK.
+- Presets are changed in the `Preset` enum in `Leveler.java`, not by adding settings screens,
+  unless an issue decides otherwise.
 
 ## Agent skills
 

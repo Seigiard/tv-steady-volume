@@ -58,9 +58,9 @@
             android:text="@string/preset_off" />
 
         <TextView
-            android:id="@+id/tile_soft"
+            android:id="@+id/tile_light"
             style="@style/Tile"
-            android:text="@string/preset_soft" />
+            android:text="@string/preset_light" />
 
         <TextView
             android:id="@+id/tile_auto"
@@ -96,6 +96,5 @@
         android:layout_marginTop="4dp"
         android:padding="20dp"
         android:background="@drawable/row"
-        android:focusable="true"
-        android:max="10" />
+        android:focusable="true" />
 </LinearLayout>

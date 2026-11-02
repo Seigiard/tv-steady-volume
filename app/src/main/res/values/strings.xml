@@ -4,8 +4,8 @@
     <string name="speech">Clearer speech: less rumble, more voice presence</string>
     <string name="preset_off">Off</string>
     <string name="preset_off_hint">Sound passes through untouched.</string>
-    <string name="preset_soft">Light</string>
-    <string name="preset_soft_hint">Gentle. Keeps most of the dynamics, evens out the extremes.</string>
+    <string name="preset_light">Light</string>
+    <string name="preset_light_hint">Gentle. Keeps most of the dynamics, evens out the extremes.</string>
     <string name="preset_auto">Auto</string>
     <string name="preset_auto_hint">Dialog and action at a similar level. Good for films, series and YouTube.</string>
     <string name="preset_night">Night</string>

@@ -3,13 +3,10 @@ package org.steadyvolume.tv;
 import android.content.Context;
 import android.content.SharedPreferences;
 
-/** The three user choices, stored in SharedPreferences. */
-final class Settings {
-    static final String PRESET_OFF = "off";
-    static final String PRESET_SOFT = "soft";
-    static final String PRESET_AUTO = "auto";
-    static final String PRESET_NIGHT = "night";
+import org.steadyvolume.tv.Leveler.Preset;
 
+/** The four user choices, stored in SharedPreferences. */
+final class Settings {
     static final int GAIN_MAX_DB = 10;
 
     private static final String FILE = "steadyvolume";
@@ -24,30 +21,25 @@ final class Settings {
         prefs = context.getApplicationContext().getSharedPreferences(FILE, Context.MODE_PRIVATE);
     }
 
-    String preset() {
-        return prefs.getString(KEY_PRESET, PRESET_AUTO);
+    Preset preset() {
+        return Preset.of(prefs.getString(KEY_PRESET, null));
     }
 
     boolean speech() {
         return prefs.getBoolean(KEY_SPEECH, true);
     }
 
-    /** Extra output gain in dB, 0..GAIN_MAX_DB. */
+    /** Volume boost in dB, 0..GAIN_MAX_DB. */
     int gainDb() {
-        int g = prefs.getInt(KEY_GAIN, 6);
-        return Math.max(0, Math.min(GAIN_MAX_DB, g));
+        return clampGain(prefs.getInt(KEY_GAIN, 6));
     }
 
     boolean startOnBoot() {
         return prefs.getBoolean(KEY_BOOT, true);
     }
 
-    boolean enabled() {
-        return !PRESET_OFF.equals(preset());
-    }
-
-    void setPreset(String preset) {
-        prefs.edit().putString(KEY_PRESET, preset).apply();
+    void setPreset(Preset preset) {
+        prefs.edit().putString(KEY_PRESET, preset.id).apply();
     }
 
     void setSpeech(boolean on) {
@@ -59,6 +51,10 @@ final class Settings {
     }
 
     void setGainDb(int db) {
-        prefs.edit().putInt(KEY_GAIN, db).apply();
+        prefs.edit().putInt(KEY_GAIN, clampGain(db)).apply();
+    }
+
+    static int clampGain(int db) {
+        return Math.max(0, Math.min(GAIN_MAX_DB, db));
     }
 }

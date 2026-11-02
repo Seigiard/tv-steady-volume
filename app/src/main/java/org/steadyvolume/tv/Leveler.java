@@ -39,61 +39,107 @@ final class Leveler {
     private static final float LIMITER_RATIO = 10f;
     private static final float LIMITER_THRESHOLD_DB = -2f;
 
-    /** A steady-volume preset: where the compressor starts, how hard, and how much makeup. */
-    static final class Preset {
+    /**
+     * A named strength of levelling. Exactly one is active. Each preset carries the id it is
+     * stored under, where the compressor starts, how hard, how much makeup, and the text the
+     * settings screen shows under its tile.
+     */
+    enum Preset {
+        OFF("off", 0f, 1f, 0f, R.string.preset_off_hint),
+        LIGHT("light", -26f, 2f, 6f, R.string.preset_light_hint),
+        AUTO("auto", -32f, 3f, 12f, R.string.preset_auto_hint),
+        NIGHT("night", -40f, 6f, 20f, R.string.preset_night_hint);
+
+        /** The id this preset is stored under. */
+        final String id;
         final float thresholdDb;
         final float ratio;
         final float makeupDb;
+        final int hintRes;
 
-        Preset(float thresholdDb, float ratio, float makeupDb) {
+        Preset(String id, float thresholdDb, float ratio, float makeupDb, int hintRes) {
+            this.id = id;
             this.thresholdDb = thresholdDb;
             this.ratio = ratio;
             this.makeupDb = makeupDb;
+            this.hintRes = hintRes;
+        }
+
+        /** The preset in which the leveller is absent and sound passes through untouched. */
+        boolean isOff() {
+            return this == OFF;
+        }
+
+        /** The preset stored under {@code id}; a missing or unknown id is the default, Auto. */
+        static Preset of(String id) {
+            for (Preset p : values()) {
+                if (p.id.equals(id)) {
+                    return p;
+                }
+            }
+            return AUTO;
         }
     }
 
-    static Preset preset(String name) {
-        switch (name) {
-            case Settings.PRESET_SOFT:
-                return new Preset(-26f, 2f, 6f);
-            case Settings.PRESET_NIGHT:
-                return new Preset(-40f, 6f, 20f);
-            case Settings.PRESET_AUTO:
-            default:
-                return new Preset(-32f, 3f, 12f);
-        }
+    /** Told when the leveller loses the system output after a successful {@link #apply}. */
+    interface LostListener {
+        void onLost(String reason);
     }
 
+    private final LostListener lostListener;
     private DynamicsProcessing effect;
 
-    /** Creates the effect if needed and pushes the current settings into it. */
-    synchronized void apply(Settings s) throws IllegalStateException {
-        Preset p = preset(s.preset());
+    Leveler(LostListener lostListener) {
+        this.lostListener = lostListener;
+    }
+
+    /**
+     * Makes the system output levelled with the current settings. On return there is one live,
+     * enabled effect carrying them; otherwise this throws and holds no effect. A handle the audio
+     * server has killed, or that another app took over, is released and replaced here, so a caller
+     * never needs to know about it.
+     */
+    synchronized void apply(Settings s) throws RuntimeException {
+        Preset p = s.preset();
         boolean speech = s.speech();
         float postGain = p.makeupDb + s.gainDb();
 
+        if (effect != null) {
+            try {
+                effect.setPreEqAllChannelsTo(eq(speech));
+                effect.setMbcAllChannelsTo(mbc(p, postGain));
+                effect.setLimiterAllChannelsTo(limiter());
+            } catch (RuntimeException dead) {
+                // A killed audio server surfaces as a plain RuntimeException from the setters,
+                // a lost control as UnsupportedOperationException: neither is IllegalStateException.
+                Log.w(TAG, "effect handle is dead, creating a new one", dead);
+                release();
+            }
+        }
         if (effect == null) {
             effect = new DynamicsProcessing(PRIORITY, GLOBAL_SESSION, buildConfig(p, speech, postGain));
+            effect.setControlStatusListener((e, granted) -> {
+                if (!granted) {
+                    lost(e, "another app took control of the system output");
+                }
+            });
+            effect.setEnableStatusListener((e, enabled) -> {
+                if (!enabled) {
+                    lost(e, "another app disabled the effect");
+                }
+            });
             Log.i(TAG, "effect created, id=" + effect.getId());
-        } else {
-            effect.setPreEqAllChannelsTo(eq(speech));
-            effect.setMbcAllChannelsTo(mbc(p, postGain));
-            effect.setLimiterAllChannelsTo(limiter());
+        }
+        if (!effect.hasControl()) {
+            release();
+            throw new IllegalStateException("another app controls the system output");
         }
         int rc = effect.setEnabled(true);
         if (rc != AudioEffect.SUCCESS) {
             release();
             throw new IllegalStateException("setEnabled failed: " + rc);
         }
-        Log.i(TAG, "applied preset=" + s.preset() + " speech=" + speech + " postGain=" + postGain);
-    }
-
-    synchronized boolean isRunning() {
-        try {
-            return effect != null && effect.getEnabled();
-        } catch (IllegalStateException e) {
-            return false;
-        }
+        Log.i(TAG, "applied preset=" + p + " speech=" + speech + " postGain=" + postGain);
     }
 
     synchronized void release() {
@@ -107,6 +153,18 @@ final class Leveler {
             effect = null;
             Log.i(TAG, "effect released");
         }
+    }
+
+    /** A callback for an effect this leveller no longer holds is stale and says nothing. */
+    private void lost(AudioEffect which, String reason) {
+        synchronized (this) {
+            if (effect != which) {
+                return;
+            }
+            Log.w(TAG, "lost the system output: " + reason);
+            release();
+        }
+        lostListener.onLost(reason);
     }
 
     private static Config buildConfig(Preset p, boolean speech, float postGain) {

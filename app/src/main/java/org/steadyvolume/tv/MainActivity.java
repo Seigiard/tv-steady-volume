@@ -9,20 +9,28 @@ import android.widget.CheckBox;
 import android.widget.SeekBar;
 import android.widget.TextView;
 
+import org.steadyvolume.tv.Leveler.Preset;
+import org.steadyvolume.tv.LevelerService.Status;
+
+import java.util.EnumMap;
+import java.util.Map;
+
 /** One screen, built for the D-pad: two check boxes, four preset tiles, one slider. */
 public class MainActivity extends Activity {
-    private static final long STATUS_DELAY_MS = 400;
+    /** D-pad steps on the slider arrive in bursts; the leveller is updated once the burst ends. */
+    private static final long SLIDER_SETTLE_MS = 300;
 
     private Settings settings;
     private TextView status;
     private TextView tileHint;
     private TextView boostLabel;
-    private View tileOff;
-    private View tileSoft;
-    private View tileAuto;
-    private View tileNight;
+    private final Map<Preset, View> tiles = new EnumMap<>(Preset.class);
     private final Handler handler = new Handler(Looper.getMainLooper());
-    private final Runnable refreshStatus = this::showStatus;
+    private boolean syncPending;
+    private final Runnable settledSync = () -> {
+        syncPending = false;
+        LevelerService.sync(this);
+    };
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -33,10 +41,6 @@ public class MainActivity extends Activity {
         status = findViewById(R.id.status);
         tileHint = findViewById(R.id.tile_hint);
         boostLabel = findViewById(R.id.boost_label);
-        tileOff = findViewById(R.id.tile_off);
-        tileSoft = findViewById(R.id.tile_soft);
-        tileAuto = findViewById(R.id.tile_auto);
-        tileNight = findViewById(R.id.tile_night);
         CheckBox boot = findViewById(R.id.boot);
         CheckBox speech = findViewById(R.id.speech);
         SeekBar boost = findViewById(R.id.boost);
@@ -47,13 +51,13 @@ public class MainActivity extends Activity {
         speech.setChecked(settings.speech());
         speech.setOnCheckedChangeListener((v, on) -> {
             settings.setSpeech(on);
-            sync();
+            LevelerService.sync(this);
         });
 
-        bindTile(tileOff, Settings.PRESET_OFF);
-        bindTile(tileSoft, Settings.PRESET_SOFT);
-        bindTile(tileAuto, Settings.PRESET_AUTO);
-        bindTile(tileNight, Settings.PRESET_NIGHT);
+        bindTile(R.id.tile_off, Preset.OFF);
+        bindTile(R.id.tile_light, Preset.LIGHT);
+        bindTile(R.id.tile_auto, Preset.AUTO);
+        bindTile(R.id.tile_night, Preset.NIGHT);
         showTiles();
 
         boost.setMax(Settings.GAIN_MAX_DB);
@@ -66,7 +70,9 @@ public class MainActivity extends Activity {
                 showBoost(value);
                 if (fromUser) {
                     settings.setGainDb(value);
-                    sync();
+                    syncPending = true;
+                    handler.removeCallbacks(settledSync);
+                    handler.postDelayed(settledSync, SLIDER_SETTLE_MS);
                 }
             }
 
@@ -79,72 +85,54 @@ public class MainActivity extends Activity {
             }
         });
 
-        focusedTile().requestFocus();
+        tiles.get(settings.preset()).requestFocus();
     }
 
     @Override
     protected void onResume() {
         super.onResume();
-        sync();
+        LevelerService.setStatusListener(this::showStatus);
+        LevelerService.sync(this);
     }
 
-    private void bindTile(View tile, String preset) {
+    @Override
+    protected void onPause() {
+        LevelerService.setStatusListener(null);
+        if (syncPending) {
+            handler.removeCallbacks(settledSync);
+            settledSync.run();
+        }
+        super.onPause();
+    }
+
+    private void bindTile(int viewId, Preset preset) {
+        View tile = findViewById(viewId);
+        tiles.put(preset, tile);
         tile.setOnClickListener(v -> {
             settings.setPreset(preset);
             showTiles();
-            sync();
+            LevelerService.sync(this);
         });
     }
 
     private void showTiles() {
-        String p = settings.preset();
-        tileOff.setSelected(Settings.PRESET_OFF.equals(p));
-        tileSoft.setSelected(Settings.PRESET_SOFT.equals(p));
-        tileAuto.setSelected(Settings.PRESET_AUTO.equals(p));
-        tileNight.setSelected(Settings.PRESET_NIGHT.equals(p));
-        switch (p) {
-            case Settings.PRESET_SOFT:
-                tileHint.setText(R.string.preset_soft_hint);
+        Preset p = settings.preset();
+        for (Map.Entry<Preset, View> e : tiles.entrySet()) {
+            e.getValue().setSelected(e.getKey() == p);
+        }
+        tileHint.setText(p.hintRes);
+    }
+
+    private void showStatus(Status s) {
+        switch (s.kind) {
+            case RUNNING:
+                status.setText(R.string.status_running);
                 break;
-            case Settings.PRESET_AUTO:
-                tileHint.setText(R.string.preset_auto_hint);
-                break;
-            case Settings.PRESET_NIGHT:
-                tileHint.setText(R.string.preset_night_hint);
+            case FAILED:
+                status.setText(getString(R.string.status_error_detail, s.reason));
                 break;
             default:
-                tileHint.setText(R.string.preset_off_hint);
-        }
-    }
-
-    private View focusedTile() {
-        switch (settings.preset()) {
-            case Settings.PRESET_OFF:
-                return tileOff;
-            case Settings.PRESET_SOFT:
-                return tileSoft;
-            case Settings.PRESET_NIGHT:
-                return tileNight;
-            default:
-                return tileAuto;
-        }
-    }
-
-    private void sync() {
-        LevelerService.sync(this);
-        handler.removeCallbacks(refreshStatus);
-        handler.postDelayed(refreshStatus, STATUS_DELAY_MS);
-    }
-
-    private void showStatus() {
-        if (!settings.enabled()) {
-            status.setText(R.string.status_off);
-        } else if (LevelerService.isRunning()) {
-            status.setText(R.string.status_running);
-        } else if (LevelerService.lastError() != null) {
-            status.setText(getString(R.string.status_error_detail, LevelerService.lastError()));
-        } else {
-            status.setText(R.string.status_off);
+                status.setText(R.string.status_off);
         }
     }
 

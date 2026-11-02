@@ -10,33 +10,79 @@ import android.content.Intent;
 import android.os.IBinder;
 import android.util.Log;
 
-/** Foreground service that owns the global effect for as long as levelling is on. */
+/**
+ * Foreground service that owns the leveller for as long as levelling is on, and owns the one
+ * {@link Status} the settings screen shows.
+ */
 public class LevelerService extends Service {
     private static final String TAG = "SteadyVolume";
     private static final String CHANNEL = "leveler";
     private static final int NOTIFICATION_ID = 1;
 
-    /** Last outcome of apply(), for the settings screen. Null error means running. */
-    private static volatile boolean sRunning;
-    private static volatile String sError;
+    /** What the leveller is doing right now: Off, Running, or Failed with the reason. */
+    static final class Status {
+        enum Kind { OFF, RUNNING, FAILED }
 
-    static boolean isRunning() {
-        return sRunning;
+        static final Status OFF = new Status(Kind.OFF, null);
+        static final Status RUNNING = new Status(Kind.RUNNING, null);
+
+        final Kind kind;
+        /** Why the leveller is not on the system output; set only when {@code kind} is FAILED. */
+        final String reason;
+
+        private Status(Kind kind, String reason) {
+            this.kind = kind;
+            this.reason = reason;
+        }
+
+        static Status failed(String reason) {
+            return new Status(Kind.FAILED, reason);
+        }
     }
 
-    static String lastError() {
-        return sError;
+    interface StatusListener {
+        void onStatus(Status status);
     }
 
-    private final Leveler leveler = new Leveler();
+    private static Status sStatus = Status.OFF;
+    private static StatusListener sListener;
 
-    /** Starts or updates the service from the current settings. Stops it when the preset is Off. */
+    /**
+     * Main thread only. The listener hears the current status at once and every change after it;
+     * null stops it. One listener: there is one settings screen.
+     */
+    static void setStatusListener(StatusListener listener) {
+        sListener = listener;
+        if (listener != null) {
+            listener.onStatus(sStatus);
+        }
+    }
+
+    private static void publish(Status status) {
+        sStatus = status;
+        if (sListener != null) {
+            sListener.onStatus(status);
+        }
+    }
+
+    private final Leveler leveler = new Leveler(reason -> {
+        publish(Status.failed(reason));
+        stopSelf();
+    });
+
+    /**
+     * The one way in, from the screen, from boot and from an update: reads the settings and makes
+     * the leveller match them. Main thread only. A stop also goes through the service, so
+     * onCreate's startForeground always runs before the stop and the system never sees a
+     * started-but-not-foreground service. After a failure the service is already gone, so Off is
+     * published here.
+     */
     static void sync(Context context) {
-        Intent i = new Intent(context, LevelerService.class);
-        if (new Settings(context).enabled()) {
-            context.startForegroundService(i);
-        } else {
-            context.stopService(i);
+        boolean wanted = !new Settings(context).preset().isOff();
+        if (wanted || sStatus.kind == Status.Kind.RUNNING) {
+            context.startForegroundService(new Intent(context, LevelerService.class));
+        } else if (sStatus.kind == Status.Kind.FAILED) {
+            publish(Status.OFF);
         }
     }
 
@@ -49,26 +95,29 @@ public class LevelerService extends Service {
     @Override
     public int onStartCommand(Intent intent, int flags, int startId) {
         Settings s = new Settings(this);
-        if (!s.enabled()) {
+        if (s.preset().isOff()) {
+            publish(Status.OFF);
             stopSelf();
             return START_NOT_STICKY;
         }
         try {
             leveler.apply(s);
-            sRunning = true;
-            sError = null;
+            publish(Status.RUNNING);
+            return START_STICKY;
         } catch (RuntimeException e) {
             Log.e(TAG, "cannot apply effect", e);
-            sRunning = false;
-            sError = e.toString();
+            publish(Status.failed(e.getMessage() != null ? e.getMessage() : e.toString()));
+            stopSelf();
+            return START_NOT_STICKY;
         }
-        return START_STICKY;
     }
 
     @Override
     public void onDestroy() {
         leveler.release();
-        sRunning = false;
+        if (sStatus.kind == Status.Kind.RUNNING) {
+            publish(Status.OFF);
+        }
         super.onDestroy();
     }
 

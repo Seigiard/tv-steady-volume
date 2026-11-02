@@ -51,6 +51,11 @@ The single mix of all apps' sound just before it leaves the TV. The leveller wor
 app is levelled and no app has to cooperate.
 _Avoid_: session 0, global mix, output mix
 
+**Status**:
+What the leveller is doing right now: Off, Running, or Failed with the reason. Exactly one status,
+owned by the module that runs the leveller; the settings screen only shows it.
+_Avoid_: state, health, running flag
+
 **Start on boot**:
 The user's choice that the leveller comes back by itself after the TV restarts.
 _Avoid_: autostart, persistent
