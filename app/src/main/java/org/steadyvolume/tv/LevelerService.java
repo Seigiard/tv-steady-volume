@@ -33,7 +33,7 @@ public class LevelerService extends Service {
     /** Starts or updates the service from the current settings. Stops it when the preset is Off. */
     static void sync(Context context) {
         Intent i = new Intent(context, LevelerService.class);
-        if (new Settings(context).enabled()) {
+        if (!new Settings(context).preset().isOff()) {
             context.startForegroundService(i);
         } else {
             context.stopService(i);
@@ -49,7 +49,7 @@ public class LevelerService extends Service {
     @Override
     public int onStartCommand(Intent intent, int flags, int startId) {
         Settings s = new Settings(this);
-        if (!s.enabled()) {
+        if (s.preset().isOff()) {
             stopSelf();
             return START_NOT_STICKY;
         }

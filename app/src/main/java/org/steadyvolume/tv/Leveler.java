@@ -39,28 +39,45 @@ final class Leveler {
     private static final float LIMITER_RATIO = 10f;
     private static final float LIMITER_THRESHOLD_DB = -2f;
 
-    /** A steady-volume preset: where the compressor starts, how hard, and how much makeup. */
-    static final class Preset {
+    /**
+     * A named strength of levelling. Exactly one is active. Each preset carries the id it is
+     * stored under, where the compressor starts, how hard, how much makeup, and the text the
+     * settings screen shows under its tile.
+     */
+    enum Preset {
+        OFF("off", 0f, 1f, 0f, R.string.preset_off_hint),
+        LIGHT("light", -26f, 2f, 6f, R.string.preset_light_hint),
+        AUTO("auto", -32f, 3f, 12f, R.string.preset_auto_hint),
+        NIGHT("night", -40f, 6f, 20f, R.string.preset_night_hint);
+
+        /** The id this preset is stored under. */
+        final String id;
         final float thresholdDb;
         final float ratio;
         final float makeupDb;
+        final int hintRes;
 
-        Preset(float thresholdDb, float ratio, float makeupDb) {
+        Preset(String id, float thresholdDb, float ratio, float makeupDb, int hintRes) {
+            this.id = id;
             this.thresholdDb = thresholdDb;
             this.ratio = ratio;
             this.makeupDb = makeupDb;
+            this.hintRes = hintRes;
         }
-    }
 
-    static Preset preset(String name) {
-        switch (name) {
-            case Settings.PRESET_SOFT:
-                return new Preset(-26f, 2f, 6f);
-            case Settings.PRESET_NIGHT:
-                return new Preset(-40f, 6f, 20f);
-            case Settings.PRESET_AUTO:
-            default:
-                return new Preset(-32f, 3f, 12f);
+        /** The preset in which the leveller is absent and sound passes through untouched. */
+        boolean isOff() {
+            return this == OFF;
+        }
+
+        /** The preset stored under {@code id}; a missing or unknown id is the default, Auto. */
+        static Preset of(String id) {
+            for (Preset p : values()) {
+                if (p.id.equals(id)) {
+                    return p;
+                }
+            }
+            return AUTO;
         }
     }
 
@@ -68,7 +85,7 @@ final class Leveler {
 
     /** Creates the effect if needed and pushes the current settings into it. */
     synchronized void apply(Settings s) throws IllegalStateException {
-        Preset p = preset(s.preset());
+        Preset p = s.preset();
         boolean speech = s.speech();
         float postGain = p.makeupDb + s.gainDb();
 
@@ -85,7 +102,7 @@ final class Leveler {
             release();
             throw new IllegalStateException("setEnabled failed: " + rc);
         }
-        Log.i(TAG, "applied preset=" + s.preset() + " speech=" + speech + " postGain=" + postGain);
+        Log.i(TAG, "applied preset=" + p + " speech=" + speech + " postGain=" + postGain);
     }
 
     synchronized boolean isRunning() {
