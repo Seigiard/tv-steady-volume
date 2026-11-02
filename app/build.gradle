@@ -1,0 +1,21 @@
+plugins { id 'com.android.application' }
+
+android {
+    namespace 'org.steadyvolume.tv'
+    compileSdk 34
+    defaultConfig {
+        applicationId 'org.steadyvolume.tv'
+        // DynamicsProcessing needs API 28. targetSdk 30 keeps Android 11 rules for the service.
+        minSdk 28
+        targetSdk 30
+        versionCode 1
+        versionName '0.1.0'
+    }
+    buildTypes {
+        release { minifyEnabled false }
+    }
+    compileOptions {
+        sourceCompatibility JavaVersion.VERSION_17
+        targetCompatibility JavaVersion.VERSION_17
+    }
+}
