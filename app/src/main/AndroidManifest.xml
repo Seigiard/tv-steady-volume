@@ -8,11 +8,13 @@
     <uses-feature android:name="android.software.leanback" android:required="false" />
     <uses-feature android:name="android.hardware.touchscreen" android:required="false" />
 
+    <!-- Keep software rendering to avoid a permanent GPU context; see ADR-0004. -->
     <application
         android:label="@string/app_name"
         android:icon="@drawable/ic_launcher"
         android:banner="@drawable/banner"
         android:allowBackup="true"
+        android:hardwareAccelerated="false"
         android:theme="@style/AppTheme">
 
         <activity
