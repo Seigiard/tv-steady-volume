@@ -3,3 +3,6 @@ build/
 local.properties
 *.iml
 .idea/
+
+# revmux: the project review profile is tracked; rounds and archives are not
+!.revmux/profile.md
