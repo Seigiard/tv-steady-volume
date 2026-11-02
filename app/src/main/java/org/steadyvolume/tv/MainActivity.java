@@ -10,13 +10,15 @@ import android.widget.SeekBar;
 import android.widget.TextView;
 
 import org.steadyvolume.tv.Leveler.Preset;
+import org.steadyvolume.tv.LevelerService.Status;
 
 import java.util.EnumMap;
 import java.util.Map;
 
 /** One screen, built for the D-pad: two check boxes, four preset tiles, one slider. */
 public class MainActivity extends Activity {
-    private static final long STATUS_DELAY_MS = 400;
+    /** D-pad steps on the slider arrive in bursts; the leveller is updated once the burst ends. */
+    private static final long SLIDER_SETTLE_MS = 300;
 
     private Settings settings;
     private TextView status;
@@ -24,7 +26,11 @@ public class MainActivity extends Activity {
     private TextView boostLabel;
     private final Map<Preset, View> tiles = new EnumMap<>(Preset.class);
     private final Handler handler = new Handler(Looper.getMainLooper());
-    private final Runnable refreshStatus = this::showStatus;
+    private boolean syncPending;
+    private final Runnable settledSync = () -> {
+        syncPending = false;
+        LevelerService.sync(this);
+    };
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -45,7 +51,7 @@ public class MainActivity extends Activity {
         speech.setChecked(settings.speech());
         speech.setOnCheckedChangeListener((v, on) -> {
             settings.setSpeech(on);
-            sync();
+            LevelerService.sync(this);
         });
 
         bindTile(R.id.tile_off, Preset.OFF);
@@ -64,7 +70,9 @@ public class MainActivity extends Activity {
                 showBoost(value);
                 if (fromUser) {
                     settings.setGainDb(value);
-                    sync();
+                    syncPending = true;
+                    handler.removeCallbacks(settledSync);
+                    handler.postDelayed(settledSync, SLIDER_SETTLE_MS);
                 }
             }
 
@@ -83,7 +91,18 @@ public class MainActivity extends Activity {
     @Override
     protected void onResume() {
         super.onResume();
-        sync();
+        LevelerService.setStatusListener(this::showStatus);
+        LevelerService.sync(this);
+    }
+
+    @Override
+    protected void onPause() {
+        LevelerService.setStatusListener(null);
+        if (syncPending) {
+            handler.removeCallbacks(settledSync);
+            settledSync.run();
+        }
+        super.onPause();
     }
 
     private void bindTile(int viewId, Preset preset) {
@@ -92,7 +111,7 @@ public class MainActivity extends Activity {
         tile.setOnClickListener(v -> {
             settings.setPreset(preset);
             showTiles();
-            sync();
+            LevelerService.sync(this);
         });
     }
 
@@ -104,21 +123,16 @@ public class MainActivity extends Activity {
         tileHint.setText(p.hintRes);
     }
 
-    private void sync() {
-        LevelerService.sync(this);
-        handler.removeCallbacks(refreshStatus);
-        handler.postDelayed(refreshStatus, STATUS_DELAY_MS);
-    }
-
-    private void showStatus() {
-        if (settings.preset().isOff()) {
-            status.setText(R.string.status_off);
-        } else if (LevelerService.isRunning()) {
-            status.setText(R.string.status_running);
-        } else if (LevelerService.lastError() != null) {
-            status.setText(getString(R.string.status_error_detail, LevelerService.lastError()));
-        } else {
-            status.setText(R.string.status_off);
+    private void showStatus(Status s) {
+        switch (s.kind) {
+            case RUNNING:
+                status.setText(R.string.status_running);
+                break;
+            case FAILED:
+                status.setText(getString(R.string.status_error_detail, s.reason));
+                break;
+            default:
+                status.setText(R.string.status_off);
         }
     }
 
