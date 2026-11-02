@@ -7,7 +7,6 @@ import android.app.PendingIntent;
 import android.app.Service;
 import android.content.Context;
 import android.content.Intent;
-import android.os.Build;
 import android.os.IBinder;
 import android.util.Log;
 
@@ -35,11 +34,7 @@ public class LevelerService extends Service {
     static void sync(Context context) {
         Intent i = new Intent(context, LevelerService.class);
         if (new Settings(context).enabled()) {
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-                context.startForegroundService(i);
-            } else {
-                context.startService(i);
-            }
+            context.startForegroundService(i);
         } else {
             context.stopService(i);
         }
@@ -84,10 +79,8 @@ public class LevelerService extends Service {
 
     private Notification buildNotification() {
         NotificationManager nm = getSystemService(NotificationManager.class);
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            nm.createNotificationChannel(new NotificationChannel(
-                    CHANNEL, getString(R.string.channel_name), NotificationManager.IMPORTANCE_LOW));
-        }
+        nm.createNotificationChannel(new NotificationChannel(
+                CHANNEL, getString(R.string.channel_name), NotificationManager.IMPORTANCE_LOW));
         PendingIntent open = PendingIntent.getActivity(this, 0,
                 new Intent(this, MainActivity.class), PendingIntent.FLAG_IMMUTABLE);
         return new Notification.Builder(this, CHANNEL)

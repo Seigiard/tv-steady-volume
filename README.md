@@ -22,7 +22,19 @@ a makeup gain, a -2 dB limiter and an optional "clearer speech" EQ.
   `libdynproc.so`.
 - Audio effects on session 0 need the `MODIFY_AUDIO_SETTINGS` permission only, which the app declares.
 
-## Build
+## Install
+
+1. Download `steadyvolume-<version>.apk` from the
+   [latest release](https://github.com/Seigiard/tv-steady-volume/releases/latest).
+2. Put it on the TV: `adb install -r steadyvolume-<version>.apk`, or open the file from a USB stick
+   with any file manager that can install APKs.
+3. Open Steady Volume once, pick a preset. It starts by itself after every reboot from then on.
+
+For updates without a computer, add this repository to
+[Obtainium](https://github.com/ImranR98/Obtainium) as a GitHub source. Every release ships one
+universal APK, signed with the same key, so updates install over the previous version.
+
+## Build from source
 
 JDK 17 and the Android SDK (platform 34, build-tools 34.0.0):
 

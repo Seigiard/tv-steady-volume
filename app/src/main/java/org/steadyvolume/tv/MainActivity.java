@@ -142,13 +142,13 @@ public class MainActivity extends Activity {
         } else if (LevelerService.isRunning()) {
             status.setText(R.string.status_running);
         } else if (LevelerService.lastError() != null) {
-            status.setText(getString(R.string.status_error) + "\n" + LevelerService.lastError());
+            status.setText(getString(R.string.status_error_detail, LevelerService.lastError()));
         } else {
             status.setText(R.string.status_off);
         }
     }
 
     private void showBoost(int db) {
-        boostLabel.setText(getString(R.string.boost) + ": +" + db + " dB");
+        boostLabel.setText(getString(R.string.boost_value, db));
     }
 }

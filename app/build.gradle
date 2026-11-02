@@ -1,21 +1,49 @@
 plugins { id 'com.android.application' }
 
+// The release workflow passes the version from the git tag (v0.2.0 -> 0.2.0 / 200).
+// A local build without properties is 0.0.0-dev / 1.
+def relVersionName = project.findProperty('versionName') ?: '0.0.0-dev'
+def relVersionCode = (project.findProperty('versionCode') ?: '1') as Integer
+
+// Release signing comes from the environment (see .github/workflows/release.yml).
+// Without it the release build type falls back to the debug key, so local release builds still work.
+def ksFile = System.getenv('KEYSTORE_FILE')
+
 android {
     namespace 'org.steadyvolume.tv'
     compileSdk 34
     defaultConfig {
         applicationId 'org.steadyvolume.tv'
-        // DynamicsProcessing needs API 28. targetSdk 30 keeps Android 11 rules for the service.
+        // DynamicsProcessing needs API 28. targetSdk 30: see docs/adr/0002-target-sdk-30.md.
         minSdk 28
         targetSdk 30
-        versionCode 1
-        versionName '0.1.0'
+        versionCode relVersionCode
+        versionName relVersionName
+    }
+    signingConfigs {
+        if (ksFile) {
+            release {
+                storeFile file(ksFile)
+                storePassword System.getenv('KEYSTORE_PASSWORD')
+                keyAlias System.getenv('KEY_ALIAS')
+                keyPassword System.getenv('KEY_PASSWORD')
+            }
+        }
     }
     buildTypes {
-        release { minifyEnabled false }
+        release {
+            minifyEnabled false
+            signingConfig ksFile ? signingConfigs.release : signingConfigs.debug
+        }
     }
     compileOptions {
         sourceCompatibility JavaVersion.VERSION_17
         targetCompatibility JavaVersion.VERSION_17
+    }
+    lint {
+        abortOnError true
+        warningsAsErrors true
+        // targetSdk 30 is deliberate: docs/adr/0002-target-sdk-30.md. Not a Play Store app.
+        disable 'ExpiredTargetSdkVersion', 'OldTargetApi'
     }
 }
