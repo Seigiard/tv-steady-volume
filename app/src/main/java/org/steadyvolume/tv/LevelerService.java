@@ -44,12 +44,8 @@ public class LevelerService extends Service {
         void onStatus(Status status);
     }
 
-    private static volatile Status sStatus = Status.OFF;
+    private static Status sStatus = Status.OFF;
     private static StatusListener sListener;
-
-    static Status status() {
-        return sStatus;
-    }
 
     /**
      * Main thread only. The listener hears the current status at once and every change after it;
@@ -76,13 +72,17 @@ public class LevelerService extends Service {
 
     /**
      * The one way in, from the screen, from boot and from an update: reads the settings and makes
-     * the leveller match them. A stop also goes through the service, so onCreate's startForeground
-     * always runs before the stop and the system never sees a started-but-not-foreground service.
+     * the leveller match them. Main thread only. A stop also goes through the service, so
+     * onCreate's startForeground always runs before the stop and the system never sees a
+     * started-but-not-foreground service. After a failure the service is already gone, so Off is
+     * published here.
      */
     static void sync(Context context) {
         boolean wanted = !new Settings(context).preset().isOff();
         if (wanted || sStatus.kind == Status.Kind.RUNNING) {
             context.startForegroundService(new Intent(context, LevelerService.class));
+        } else if (sStatus.kind == Status.Kind.FAILED) {
+            publish(Status.OFF);
         }
     }
 

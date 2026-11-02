@@ -96,9 +96,10 @@ final class Leveler {
     /**
      * Makes the system output levelled with the current settings. On return there is one live,
      * enabled effect carrying them; otherwise this throws and holds no effect. A handle the audio
-     * server has killed is released and replaced here, so a caller never needs to know about it.
+     * server has killed, or that another app took over, is released and replaced here, so a caller
+     * never needs to know about it.
      */
-    synchronized void apply(Settings s) throws IllegalStateException {
+    synchronized void apply(Settings s) throws RuntimeException {
         Preset p = s.preset();
         boolean speech = s.speech();
         float postGain = p.makeupDb + s.gainDb();
@@ -108,7 +109,9 @@ final class Leveler {
                 effect.setPreEqAllChannelsTo(eq(speech));
                 effect.setMbcAllChannelsTo(mbc(p, postGain));
                 effect.setLimiterAllChannelsTo(limiter());
-            } catch (IllegalStateException dead) {
+            } catch (RuntimeException dead) {
+                // A killed audio server surfaces as a plain RuntimeException from the setters,
+                // a lost control as UnsupportedOperationException: neither is IllegalStateException.
                 Log.w(TAG, "effect handle is dead, creating a new one", dead);
                 release();
             }
