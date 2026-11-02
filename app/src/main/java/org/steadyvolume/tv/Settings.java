@@ -10,7 +10,7 @@ final class Settings {
     static final String PRESET_AUTO = "auto";
     static final String PRESET_NIGHT = "night";
 
-    static final int GAIN_MAX_DB = 15;
+    static final int GAIN_MAX_DB = 10;
 
     private static final String FILE = "steadyvolume";
     private static final String KEY_PRESET = "preset";

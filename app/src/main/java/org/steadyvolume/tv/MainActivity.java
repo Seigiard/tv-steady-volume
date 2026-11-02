@@ -9,7 +9,7 @@ import android.widget.CheckBox;
 import android.widget.SeekBar;
 import android.widget.TextView;
 
-/** One screen, built for the D-pad: two check boxes, three preset tiles, one slider. */
+/** One screen, built for the D-pad: two check boxes, four preset tiles, one slider. */
 public class MainActivity extends Activity {
     private static final long STATUS_DELAY_MS = 400;
 
@@ -17,6 +17,7 @@ public class MainActivity extends Activity {
     private TextView status;
     private TextView tileHint;
     private TextView boostLabel;
+    private View tileOff;
     private View tileSoft;
     private View tileAuto;
     private View tileNight;
@@ -32,6 +33,7 @@ public class MainActivity extends Activity {
         status = findViewById(R.id.status);
         tileHint = findViewById(R.id.tile_hint);
         boostLabel = findViewById(R.id.boost_label);
+        tileOff = findViewById(R.id.tile_off);
         tileSoft = findViewById(R.id.tile_soft);
         tileAuto = findViewById(R.id.tile_auto);
         tileNight = findViewById(R.id.tile_night);
@@ -48,6 +50,7 @@ public class MainActivity extends Activity {
             sync();
         });
 
+        bindTile(tileOff, Settings.PRESET_OFF);
         bindTile(tileSoft, Settings.PRESET_SOFT);
         bindTile(tileAuto, Settings.PRESET_AUTO);
         bindTile(tileNight, Settings.PRESET_NIGHT);
@@ -85,10 +88,9 @@ public class MainActivity extends Activity {
         sync();
     }
 
-    /** A tile selects its preset. The lit tile pressed again turns levelling off. */
     private void bindTile(View tile, String preset) {
         tile.setOnClickListener(v -> {
-            settings.setPreset(preset.equals(settings.preset()) ? Settings.PRESET_OFF : preset);
+            settings.setPreset(preset);
             showTiles();
             sync();
         });
@@ -96,6 +98,7 @@ public class MainActivity extends Activity {
 
     private void showTiles() {
         String p = settings.preset();
+        tileOff.setSelected(Settings.PRESET_OFF.equals(p));
         tileSoft.setSelected(Settings.PRESET_SOFT.equals(p));
         tileAuto.setSelected(Settings.PRESET_AUTO.equals(p));
         tileNight.setSelected(Settings.PRESET_NIGHT.equals(p));
@@ -110,12 +113,14 @@ public class MainActivity extends Activity {
                 tileHint.setText(R.string.preset_night_hint);
                 break;
             default:
-                tileHint.setText(R.string.preset_hint_off);
+                tileHint.setText(R.string.preset_off_hint);
         }
     }
 
     private View focusedTile() {
         switch (settings.preset()) {
+            case Settings.PRESET_OFF:
+                return tileOff;
             case Settings.PRESET_SOFT:
                 return tileSoft;
             case Settings.PRESET_NIGHT:

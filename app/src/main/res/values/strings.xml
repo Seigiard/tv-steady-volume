@@ -1,14 +1,15 @@
 <resources>
     <string name="app_name">Steady Volume</string>
     <string name="start_on_boot">Start on boot</string>
-    <string name="speech">Clearer speech</string>
-    <string name="preset_soft">Soft</string>
-    <string name="preset_soft_hint">light levelling</string>
+    <string name="speech">Clearer speech: less rumble, more voice presence</string>
+    <string name="preset_off">Off</string>
+    <string name="preset_off_hint">Sound passes through untouched.</string>
+    <string name="preset_soft">Light</string>
+    <string name="preset_soft_hint">Gentle. Keeps most of the dynamics, evens out the extremes.</string>
     <string name="preset_auto">Auto</string>
-    <string name="preset_auto_hint">films and series</string>
+    <string name="preset_auto_hint">Dialog and action at a similar level. Good for films, series and YouTube.</string>
     <string name="preset_night">Night</string>
-    <string name="preset_night_hint">strongest, quiet room</string>
-    <string name="preset_hint_off">Press a tile to start. Press the lit tile again to stop.</string>
+    <string name="preset_night_hint">Strongest. Quiet room, late evening, no loud surprises.</string>
     <string name="boost">Volume boost</string>
     <string name="status_running">Levelling the system output</string>
     <string name="status_off">Off</string>
