@@ -13,6 +13,8 @@ a makeup gain, a -2 dB limiter and an optional "clearer speech" EQ.
 - **Volume boost** 0..10 dB on top of the levelled sound.
 - **Clearer speech**: -4 dB below 160 Hz, +4 dB at 2–4 kHz.
 - **Start on boot**: a foreground service brings the effect back after a reboot.
+- **Quick panel**: the remote's microphone button opens a strip over the video with the presets,
+  Volume boost and Clearer speech, so a film is not left for a preset change. Back closes it.
 - No network permission, no analytics, no dependencies. The APK is about 40 KB.
 
 ## Requirements
@@ -21,6 +23,10 @@ a makeup gain, a -2 dB limiter and an optional "clearer speech" EQ.
   firmware ships it; check with `adb shell ls /vendor/lib/soundfx/ /system/lib/soundfx/` for
   `libdynproc.so`.
 - Audio effects on session 0 need the `MODIFY_AUDIO_SETTINGS` permission only, which the app declares.
+- The quick panel needs the microphone button free: Android hands the press to whatever app answers
+  `android.speech.action.WEB_SEARCH`. With the Google TV search app (`com.google.android.katniss`)
+  disabled, Steady Volume is the only answer; with it enabled, Android shows a chooser. TVs whose
+  remote sends a search key instead are not covered yet.
 
 ## Install
 

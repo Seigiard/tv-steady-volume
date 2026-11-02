@@ -24,9 +24,12 @@ public class MainActivity extends Activity {
     private TextView status;
     private TextView tileHint;
     private TextView boostLabel;
+    private CheckBox speech;
+    private SeekBar boost;
     private final Map<Preset, View> tiles = new EnumMap<>(Preset.class);
     private final Handler handler = new Handler(Looper.getMainLooper());
     private boolean syncPending;
+    private boolean refreshing;
     private final Runnable settledSync = () -> {
         syncPending = false;
         LevelerService.sync(this);
@@ -42,14 +45,17 @@ public class MainActivity extends Activity {
         tileHint = findViewById(R.id.tile_hint);
         boostLabel = findViewById(R.id.boost_label);
         CheckBox boot = findViewById(R.id.boot);
-        CheckBox speech = findViewById(R.id.speech);
-        SeekBar boost = findViewById(R.id.boost);
+        speech = findViewById(R.id.speech);
+        boost = findViewById(R.id.boost);
 
         boot.setChecked(settings.startOnBoot());
         boot.setOnCheckedChangeListener((v, on) -> settings.setStartOnBoot(on));
 
         speech.setChecked(settings.speech());
         speech.setOnCheckedChangeListener((v, on) -> {
+            if (refreshing) {
+                return;
+            }
             settings.setSpeech(on);
             LevelerService.sync(this);
         });
@@ -68,7 +74,7 @@ public class MainActivity extends Activity {
             @Override
             public void onProgressChanged(SeekBar bar, int value, boolean fromUser) {
                 showBoost(value);
-                if (fromUser) {
+                if (fromUser && !refreshing) {
                     settings.setGainDb(value);
                     syncPending = true;
                     handler.removeCallbacks(settledSync);
@@ -91,6 +97,13 @@ public class MainActivity extends Activity {
     @Override
     protected void onResume() {
         super.onResume();
+        refreshing = true;
+        showTiles();
+        int gainDb = settings.gainDb();
+        boost.setProgress(gainDb);
+        showBoost(gainDb);
+        speech.setChecked(settings.speech());
+        refreshing = false;
         LevelerService.setStatusListener(this::showStatus);
         LevelerService.sync(this);
     }

@@ -22,6 +22,7 @@
         android:textSize="18sp"
         android:textColor="@color/text_dim" />
 
+    <!-- Settings is the source of truth; restored state must not write through listeners. -->
     <CheckBox
         android:id="@+id/boot"
         android:layout_width="match_parent"
@@ -30,6 +31,7 @@
         android:padding="12dp"
         android:background="@drawable/row"
         android:focusable="true"
+        android:saveEnabled="false"
         android:text="@string/start_on_boot"
         android:textSize="22sp"
         android:textColor="@color/text" />
@@ -41,6 +43,7 @@
         android:padding="12dp"
         android:background="@drawable/row"
         android:focusable="true"
+        android:saveEnabled="false"
         android:text="@string/speech"
         android:textSize="22sp"
         android:textColor="@color/text" />
