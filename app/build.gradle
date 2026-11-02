@@ -47,3 +47,8 @@ android {
         disable 'ExpiredTargetSdkVersion', 'OldTargetApi'
     }
 }
+
+dependencies {
+    // JVM tests only; nothing here ships in the APK.
+    testImplementation 'junit:junit:4.13.2'
+}
