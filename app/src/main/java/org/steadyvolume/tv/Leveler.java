@@ -81,21 +81,55 @@ final class Leveler {
         }
     }
 
+    /** Told when the leveller loses the system output after a successful {@link #apply}. */
+    interface LostListener {
+        void onLost(String reason);
+    }
+
+    private final LostListener lostListener;
     private DynamicsProcessing effect;
 
-    /** Creates the effect if needed and pushes the current settings into it. */
+    Leveler(LostListener lostListener) {
+        this.lostListener = lostListener;
+    }
+
+    /**
+     * Makes the system output levelled with the current settings. On return there is one live,
+     * enabled effect carrying them; otherwise this throws and holds no effect. A handle the audio
+     * server has killed is released and replaced here, so a caller never needs to know about it.
+     */
     synchronized void apply(Settings s) throws IllegalStateException {
         Preset p = s.preset();
         boolean speech = s.speech();
         float postGain = p.makeupDb + s.gainDb();
 
+        if (effect != null) {
+            try {
+                effect.setPreEqAllChannelsTo(eq(speech));
+                effect.setMbcAllChannelsTo(mbc(p, postGain));
+                effect.setLimiterAllChannelsTo(limiter());
+            } catch (IllegalStateException dead) {
+                Log.w(TAG, "effect handle is dead, creating a new one", dead);
+                release();
+            }
+        }
         if (effect == null) {
             effect = new DynamicsProcessing(PRIORITY, GLOBAL_SESSION, buildConfig(p, speech, postGain));
+            effect.setControlStatusListener((e, granted) -> {
+                if (!granted) {
+                    lost(e, "another app took control of the system output");
+                }
+            });
+            effect.setEnableStatusListener((e, enabled) -> {
+                if (!enabled) {
+                    lost(e, "another app disabled the effect");
+                }
+            });
             Log.i(TAG, "effect created, id=" + effect.getId());
-        } else {
-            effect.setPreEqAllChannelsTo(eq(speech));
-            effect.setMbcAllChannelsTo(mbc(p, postGain));
-            effect.setLimiterAllChannelsTo(limiter());
+        }
+        if (!effect.hasControl()) {
+            release();
+            throw new IllegalStateException("another app controls the system output");
         }
         int rc = effect.setEnabled(true);
         if (rc != AudioEffect.SUCCESS) {
@@ -103,14 +137,6 @@ final class Leveler {
             throw new IllegalStateException("setEnabled failed: " + rc);
         }
         Log.i(TAG, "applied preset=" + p + " speech=" + speech + " postGain=" + postGain);
-    }
-
-    synchronized boolean isRunning() {
-        try {
-            return effect != null && effect.getEnabled();
-        } catch (IllegalStateException e) {
-            return false;
-        }
     }
 
     synchronized void release() {
@@ -124,6 +150,18 @@ final class Leveler {
             effect = null;
             Log.i(TAG, "effect released");
         }
+    }
+
+    /** A callback for an effect this leveller no longer holds is stale and says nothing. */
+    private void lost(AudioEffect which, String reason) {
+        synchronized (this) {
+            if (effect != which) {
+                return;
+            }
+            Log.w(TAG, "lost the system output: " + reason);
+            release();
+        }
+        lostListener.onLost(reason);
     }
 
     private static Config buildConfig(Preset p, boolean speech, float postGain) {

@@ -28,7 +28,11 @@ public class LevelerService extends Service {
         return sError;
     }
 
-    private final Leveler leveler = new Leveler();
+    private final Leveler leveler = new Leveler(reason -> {
+        sRunning = false;
+        sError = reason;
+        stopSelf();
+    });
 
     /** Starts or updates the service from the current settings. Stops it when the preset is Off. */
     static void sync(Context context) {
